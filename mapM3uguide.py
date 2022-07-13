@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import sys
 import re
+import xml.etree.ElementTree
+
 
 
 def readfile (fileName):
@@ -19,12 +21,10 @@ def main() -> int:
     it = re.finditer("tvg-id\=\"(\w+.+?)\".+tvg-name=\"(\w+.+?)\"", m3uContent)
     for m in it:
         playlist.setdefault(m.group(1),[]).append(re.sub("\W+"," ", m.group(2)).lower())
-        #print(m.group(1),playlist[m.group(1)])
 
     it = re.finditer("channel id=\"(\w+.+?)\"", guideContent)
     for m in it:
         guide[m.group(1)] = re.sub("\W+"," ", m.group(1).lower())
-        #print(m.group(1),guide[m.group(1)])
 
     for pid in playlist:
         for playlistName in playlist[pid]:
@@ -45,10 +45,23 @@ def main() -> int:
                         playlistToGuide[pid] = gid 
                         print(pid,playlistTokens,"\t",gid,guideTokens,file = sys.stderr)
 
-    
+    #replace old ids from guide with matched ids from playlist    
     for pid in playlistToGuide:
         guideContent = guideContent.replace(playlistToGuide[pid],pid)
         print(pid," -> ", playlistToGuide[pid], file = sys.stderr)
+    #print(guideContent)
+    
+    #remove unreferenced programmes that did not match anything from playlist
+    
+    guideXML = xml.etree.ElementTree.ElementTree(element=xml.etree.ElementTree.fromstring(guideContent))
+    
+    
+    programmes = guideXML.findall('programme')
+    for programme in programmes:
+       if programme.get("channel") not in playlistToGuide:
+           programmes.remove(programme)
+    guideXML.write("newguide.xml")
+
     return 0
 
 if __name__ == '__main__':
