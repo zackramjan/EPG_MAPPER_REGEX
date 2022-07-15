@@ -45,22 +45,28 @@ def main() -> int:
                         playlistToGuide[pid] = gid 
                         print(pid,playlistTokens,"\t",gid,guideTokens,file = sys.stderr)
 
-    #replace old ids from guide with matched ids from playlist    
-    for pid in playlistToGuide:
-        guideContent = guideContent.replace(playlistToGuide[pid],pid)
-        print(pid," -> ", playlistToGuide[pid], file = sys.stderr)
-    #print(guideContent)
-    
-    #remove unreferenced programmes that did not match anything from playlist
-    
-    guideXML = xml.etree.ElementTree.ElementTree(element=xml.etree.ElementTree.fromstring(guideContent))
+    #invert the dictionary for 2way lookup
+    invert_playlistToGuide = {v: k for k, v in playlistToGuide.items()}
+
+    for k in sorted(playlistToGuide):
+        print(k,"->",playlistToGuide[k], file=sys.stderr)
     
     
-    programmes = guideXML.findall('programme')
-    for programme in programmes:
-       if programme.get("channel") not in playlistToGuide:
-           programmes.remove(programme)
-    guideXML.write("newguide.xml")
+    print("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>")
+    print("<tv generator-info-name=\"none\" generator-info-url=\"none\">")
+
+    #walk the guide and replace ids. throw out things that are unmapped
+    for event, element in xml.etree.ElementTree.iterparse(sys.argv[2], events=("start","end")):
+        if element.tag == "programme" and event == "start":
+            if element.get("channel") in invert_playlistToGuide:
+                print(xml.etree.ElementTree.tostring(element).decode().replace(element.get("channel"),invert_playlistToGuide[element.get("channel")]))
+
+        elif  element.tag == "channel" and event == "start":
+           if element.get("id") in invert_playlistToGuide:
+                print(xml.etree.ElementTree.tostring(element).decode().replace(element.get("id"),invert_playlistToGuide[element.get("id")])) 
+        element.clear()
+
+    print("</tv>")
 
     return 0
 
